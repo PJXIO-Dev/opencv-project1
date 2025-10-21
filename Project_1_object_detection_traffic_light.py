@@ -243,6 +243,8 @@ def command_setup(args: argparse.Namespace) -> None:
     print("Detected dataset configuration:")
     print(json.dumps(cfg.yaml_dict, indent=2))
     print("Class labels:", ", ".join(CLASS_NAMES))
+    data_yaml = ensure_data_yaml(data_root)
+    print(f"Data YAML available at {data_yaml}")
 
 
 def command_train(args: argparse.Namespace) -> None:
@@ -687,6 +689,8 @@ def command_export_notebook(args: argparse.Namespace) -> None:
 
     params_cell = textwrap.dedent(
         f"""
+        from pathlib import Path
+
         DATA_ROOT = Path("{args.data_root}")
         EPOCHS = 120
         IMGSZ = 640
@@ -696,34 +700,33 @@ def command_export_notebook(args: argparse.Namespace) -> None:
         USE_SAHI = True
         VIDEO_PATH = "inference_traffic_light_video.mp4"
         WEIGHTS_PATH = "runs/best.pt"
+        CLASS_NAMES = ["green", "off", "red", "wait_on", "yellow"]
         """
     ).strip()
 
     dataset_cell = textwrap.dedent(
         """
-        from Project_1_object_detection_traffic_light import (
-            discover_dataset,
-            ensure_data_yaml,
-            CLASS_NAMES,
-        )
+        import subprocess, sys
 
-        dataset_root = DATA_ROOT
-        if not dataset_root.exists():
-            raise FileNotFoundError(f"Dataset root not found: {dataset_root}")
-        cfg = discover_dataset(dataset_root)
-        data_yaml = ensure_data_yaml(dataset_root)
-        print(f"Train images: {cfg.train_images}")
-        print(f"Validation images: {cfg.val_images}")
-        print("Classes:", ", ".join(CLASS_NAMES))
-        print("Data YAML:", data_yaml)
+        setup_cmd = [
+            sys.executable,
+            "Project_1_object_detection_traffic_light.py",
+            "setup",
+            "--data-root", str(DATA_ROOT),
+        ]
+        result = subprocess.run(setup_cmd, check=False)
+        if result.returncode != 0:
+            raise SystemExit(f"Setup command failed with exit code {result.returncode}")
         """
     ).strip()
 
     train_cell = textwrap.dedent(
         """
-        from Project_1_object_detection_traffic_light import main
+        import subprocess, sys
 
-        main([
+        train_cmd = [
+            sys.executable,
+            "Project_1_object_detection_traffic_light.py",
             "train",
             "--data-root", str(DATA_ROOT),
             "--epochs", str(EPOCHS),
@@ -732,33 +735,46 @@ def command_export_notebook(args: argparse.Namespace) -> None:
             "--device", DEVICE,
             "--seed", str(SEED),
             "--patience", "20",
-        ])
+        ]
+        result = subprocess.run(train_cmd, check=False)
+        if result.returncode != 0:
+            raise SystemExit(f"Train command failed with exit code {result.returncode}")
         """
     ).strip()
 
     validate_cell = textwrap.dedent(
         """
-        from Project_1_object_detection_traffic_light import main
+        import subprocess, sys
 
-        main([
+        validate_cmd = [
+            sys.executable,
+            "Project_1_object_detection_traffic_light.py",
             "validate",
             "--data-root", str(DATA_ROOT),
-        ])
+        ]
+        result = subprocess.run(validate_cmd, check=False)
+        if result.returncode != 0:
+            raise SystemExit(f"Validate command failed with exit code {result.returncode}")
         """
     ).strip()
 
     infer_cell = textwrap.dedent(
         """
-        from Project_1_object_detection_traffic_light import main
+        import subprocess, sys
 
-        main([
+        infer_cmd = [
+            sys.executable,
+            "Project_1_object_detection_traffic_light.py",
             "infer-video",
             "--weights", WEIGHTS_PATH,
             "--video", VIDEO_PATH,
             "--sahi", str(USE_SAHI).lower(),
             "--conf-thres", "0.25",
             "--iou-thres", "0.5",
-        ])
+        ]
+        result = subprocess.run(infer_cmd, check=False)
+        if result.returncode != 0:
+            raise SystemExit(f"Inference failed with exit code {result.returncode}")
         """
     ).strip()
 

@@ -106,5 +106,7 @@ python Project_1_object_detection_traffic_light.py export-notebook \
 
 The command regenerates `Project_1_object_detection_traffic_light.ipynb`
 programmatically using `nbformat`. Open the notebook in JupyterLab or VS Code
-and execute the cells sequentially. Omit `--overwrite` to keep an existing
-notebook untouched.
+and execute the cells sequentially. Each code cell invokes the CLI via
+subprocess calls (no in-notebook imports from the Python module), so the
+workflow remains isolated yet reproducible. Omit `--overwrite` to keep an
+existing notebook untouched.
