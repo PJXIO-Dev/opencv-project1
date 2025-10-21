@@ -682,12 +682,6 @@ def command_export_notebook(args: argparse.Namespace) -> None:
         numpy, pandas, tqdm = (guard(m) for m in ("numpy", "pandas", "tqdm"))
         sahi = guard("sahi")
         supervision = guard("supervision")
-        from Project_1_object_detection_traffic_light import (
-            main,
-            discover_dataset,
-            ensure_data_yaml,
-            CLASS_NAMES,
-        )
         """
     ).strip()
 
@@ -707,6 +701,12 @@ def command_export_notebook(args: argparse.Namespace) -> None:
 
     dataset_cell = textwrap.dedent(
         """
+        from Project_1_object_detection_traffic_light import (
+            discover_dataset,
+            ensure_data_yaml,
+            CLASS_NAMES,
+        )
+
         dataset_root = DATA_ROOT
         if not dataset_root.exists():
             raise FileNotFoundError(f"Dataset root not found: {dataset_root}")
@@ -721,6 +721,8 @@ def command_export_notebook(args: argparse.Namespace) -> None:
 
     train_cell = textwrap.dedent(
         """
+        from Project_1_object_detection_traffic_light import main
+
         main([
             "train",
             "--data-root", str(DATA_ROOT),
@@ -736,6 +738,8 @@ def command_export_notebook(args: argparse.Namespace) -> None:
 
     validate_cell = textwrap.dedent(
         """
+        from Project_1_object_detection_traffic_light import main
+
         main([
             "validate",
             "--data-root", str(DATA_ROOT),
@@ -745,6 +749,8 @@ def command_export_notebook(args: argparse.Namespace) -> None:
 
     infer_cell = textwrap.dedent(
         """
+        from Project_1_object_detection_traffic_light import main
+
         main([
             "infer-video",
             "--weights", WEIGHTS_PATH,
