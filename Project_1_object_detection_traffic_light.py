@@ -656,34 +656,25 @@ def command_export_notebook(args: argparse.Namespace) -> None:
 
     install_cell = textwrap.dedent(
         """
-        from importlib import import_module, util
-        from pathlib import Path
-        import sys
+import sys, subprocess
 
-        def guard(module, package=None, critical=False):
-            if util.find_spec(module):
-                return import_module(module)
-            pkg = package or module
-            if module == "torch":
-                print("PyTorch missing. Install CPU build via `pip install torch --index-url https://download.pytorch.org/whl/cpu`.")
-                return None
-            msg = f"Install via `pip install {pkg}`." if critical else f"Optional dependency `{module}` missing."
-            print(msg)
-            if critical:
-                raise ModuleNotFoundError(module)
-            return None
+commands = [
+    [sys.executable, "-m", "pip", "install", "torch", "--index-url", "https://download.pytorch.org/whl/cpu"],
+    [sys.executable, "-m", "pip", "install", "ultralytics", "opencv-python", "pandas", "numpy", "tqdm", "nbformat", "matplotlib", "pyyaml"],
+    [sys.executable, "-m", "pip", "install", "sahi", "supervision"],
+]
+for cmd in commands:
+    print("Running:", " ".join(cmd))
+    subprocess.run(cmd, check=False)
 
-        project_root = Path.cwd()
-        if str(project_root) not in sys.path:
-            sys.path.insert(0, str(project_root))
+import json, os, random, sys, time
+from pathlib import Path
 
-        nbformat = guard("nbformat", critical=True)
-        torch = guard("torch")
-        ultralytics = guard("ultralytics")
-        cv2 = guard("cv2", "opencv-python")
-        numpy, pandas, tqdm = (guard(m) for m in ("numpy", "pandas", "tqdm"))
-        sahi = guard("sahi")
-        supervision = guard("supervision")
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
         """
     ).strip()
 
@@ -698,25 +689,72 @@ def command_export_notebook(args: argparse.Namespace) -> None:
         DEVICE = "auto"
         SEED = 42
         USE_SAHI = True
-        VIDEO_PATH = "inference_traffic_light_video.mp4"
-        WEIGHTS_PATH = "runs/best.pt"
+        VIDEO_PATH = Path("inference_traffic_light_video.mp4")
+        WEIGHTS_PATH = Path("runs/best.pt")
+        MODEL_PATH = Path("{DEFAULT_MODEL}")
         CLASS_NAMES = ["green", "off", "red", "wait_on", "yellow"]
         """
     ).strip()
 
     dataset_cell = textwrap.dedent(
         """
-        import subprocess, sys
+import yaml
+TRAIN_IMAGES_DIR = DATA_ROOT / "train" / "images"
+VAL_IMAGES_DIR = DATA_ROOT / "valid" / "images"
+if not VAL_IMAGES_DIR.exists():
+    alt = DATA_ROOT / "val" / "images"
+    if alt.exists():
+        VAL_IMAGES_DIR = alt
+if not TRAIN_IMAGES_DIR.exists():
+    raise FileNotFoundError(f"Missing training images in {TRAIN_IMAGES_DIR}")
+if not VAL_IMAGES_DIR.exists():
+    raise FileNotFoundError(f"Missing validation images in {VAL_IMAGES_DIR}")
+cfg = {
+    "path": str(DATA_ROOT.resolve()),
+    "train": str(TRAIN_IMAGES_DIR.resolve()),
+    "val": str(VAL_IMAGES_DIR.resolve()),
+    "names": dict(enumerate(CLASS_NAMES)),
+}
+out_dir = Path("runs/data_configs"); out_dir.mkdir(parents=True, exist_ok=True)
+DATA_YAML_PATH = out_dir / f"traffic_light_{DATA_ROOT.name.replace(' ', '_')}.yaml"
+content = yaml.safe_dump(cfg, sort_keys=False)
+if not DATA_YAML_PATH.exists() or DATA_YAML_PATH.read_text() != content:
+    DATA_YAML_PATH.write_text(content)
+print(f"Data YAML: {DATA_YAML_PATH}\nTrain images: {TRAIN_IMAGES_DIR}\nVal images: {VAL_IMAGES_DIR}\nClasses: {CLASS_NAMES}")
+        """
+    ).strip()
 
-        setup_cmd = [
-            sys.executable,
-            "Project_1_object_detection_traffic_light.py",
-            "setup",
-            "--data-root", str(DATA_ROOT),
-        ]
-        result = subprocess.run(setup_cmd, check=False)
-        if result.returncode != 0:
-            raise SystemExit(f"Setup command failed with exit code {result.returncode}")
+    preview_cell = textwrap.dedent(
+        """
+        import random
+
+        def yolo_to_xyxy(row, w, h):
+            cls, xc, yc, bw, bh = row
+            x1 = max(0, int((xc - bw / 2) * w))
+            y1 = max(0, int((yc - bh / 2) * h))
+            x2 = min(w - 1, int((xc + bw / 2) * w))
+            y2 = min(h - 1, int((yc + bh / 2) * h))
+            return int(cls), x1, y1, x2, y2
+
+        candidates = sorted(TRAIN_IMAGES_DIR.glob("*.jpg")) + sorted(TRAIN_IMAGES_DIR.glob("*.png"))
+        if not candidates:
+            print("No training images found for preview.")
+        else:
+            picks = random.sample(candidates, min(3, len(candidates)))
+            fig, axes = plt.subplots(1, len(picks), figsize=(5 * len(picks), 5))
+            axes = [axes] if len(picks) == 1 else axes
+            for ax, img_path in zip(axes, picks):
+                img = cv2.cvtColor(cv2.imread(str(img_path)), cv2.COLOR_BGR2RGB)
+                h, w = img.shape[:2]
+                label_path = img_path.parent.parent / "labels" / f"{img_path.stem}.txt"
+                if label_path.exists():
+                    for line in label_path.read_text().strip().splitlines():
+                        cls, x1, y1, x2, y2 = yolo_to_xyxy([float(x) for x in line.split()], w, h)
+                        cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                        ax.text(x1, max(12, y1 + 12), CLASS_NAMES[cls], color="yellow", fontsize=9,
+                                bbox=dict(facecolor="black", alpha=0.5, pad=1))
+                ax.imshow(img); ax.set_title(img_path.name); ax.axis("off")
+            plt.show()
         """
     ).strip()
 
@@ -735,6 +773,7 @@ def command_export_notebook(args: argparse.Namespace) -> None:
             "--device", DEVICE,
             "--seed", str(SEED),
             "--patience", "20",
+            "--model", str(MODEL_PATH),
         ]
         result = subprocess.run(train_cmd, check=False)
         if result.returncode != 0:
@@ -751,6 +790,7 @@ def command_export_notebook(args: argparse.Namespace) -> None:
             "Project_1_object_detection_traffic_light.py",
             "validate",
             "--data-root", str(DATA_ROOT),
+            "--weights", str(WEIGHTS_PATH),
         ]
         result = subprocess.run(validate_cmd, check=False)
         if result.returncode != 0:
@@ -766,8 +806,8 @@ def command_export_notebook(args: argparse.Namespace) -> None:
             sys.executable,
             "Project_1_object_detection_traffic_light.py",
             "infer-video",
-            "--weights", WEIGHTS_PATH,
-            "--video", VIDEO_PATH,
+            "--weights", str(WEIGHTS_PATH),
+            "--video", str(VIDEO_PATH),
             "--sahi", str(USE_SAHI).lower(),
             "--conf-thres", "0.25",
             "--iou-thres", "0.5",
@@ -846,6 +886,7 @@ def command_export_notebook(args: argparse.Namespace) -> None:
         nbf.v4.new_code_cell(install_cell),
         nbf.v4.new_code_cell(params_cell),
         nbf.v4.new_code_cell(dataset_cell),
+        nbf.v4.new_code_cell(preview_cell),
         nbf.v4.new_code_cell(train_cell),
         nbf.v4.new_code_cell(validate_cell),
         nbf.v4.new_code_cell(infer_cell),

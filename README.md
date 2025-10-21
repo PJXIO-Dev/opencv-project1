@@ -43,7 +43,8 @@ python Project_1_object_detection_traffic_light.py setup \
 # 2) Training (update hyper-parameters as needed)
 python Project_1_object_detection_traffic_light.py train \
   --data-root "Small Traffic Light.v1i.yolov11" \
-  --epochs 120 --imgsz 640 --batch 16 --device auto --seed 42 --patience 20
+  --epochs 120 --imgsz 640 --batch 16 --device auto --seed 42 --patience 20 \
+  --model path/to/your/yolo_backbone.pt
 
 # 3) Validation only
 python Project_1_object_detection_traffic_light.py validate \
@@ -64,6 +65,9 @@ python Project_1_object_detection_traffic_light.py export-notebook [--overwrite]
 # 7) Quick demo (train+val+infer with small budgets)
 python Project_1_object_detection_traffic_light.py demo \
   --data-root "Small Traffic Light.v1i.yolov11"
+
+> **Tip:** `--model` (train/tune/demo) and `--weights` (validate/infer/demo) accept absolute or relative paths, so you can start
+> from any YOLO checkpoint stored in your workspace.
 ```
 
 ## Results
@@ -90,7 +94,7 @@ python Project_1_object_detection_traffic_light.py demo \
 4. Hyper-parameter tuning hook via `yolo.tune` for lightweight searches.
 5. SAHI tiled inference path with configurable tile size and overlap for improved small-object recall.
 6. Structured logging of arguments and metrics per run under `runs/` for experiment tracking.
-7. Notebook export built programmatically via `nbformat` to mirror the CLI flow.
+7. Notebook export built programmatically via `nbformat` to mirror the CLI flow and preview training samples with bounding boxes.
 8. Video inference produces annotated media plus CSV summaries with smoothed predominant colour labels.
 9. ONNX export for deployment and integration with downstream runtimes.
 10. Compact demo command that exercises the end-to-end flow on a tight budget.
@@ -106,7 +110,10 @@ python Project_1_object_detection_traffic_light.py export-notebook \
 
 The command regenerates `Project_1_object_detection_traffic_light.ipynb`
 programmatically using `nbformat`. Open the notebook in JupyterLab or VS Code
-and execute the cells sequentially. Each code cell invokes the CLI via
-subprocess calls (no in-notebook imports from the Python module), so the
-workflow remains isolated yet reproducible. Omit `--overwrite` to keep an
-existing notebook untouched.
+and execute the cells sequentially. The first code cell installs all
+dependencies via `pip`, the dataset cell synthesises `data.yaml`, and a preview
+cell renders a few training images with their YOLO bounding boxes. Training,
+validation, and inference cells call the CLI through subprocesses, keeping the
+workflow isolated yet reproducible. Update the configuration cell to point
+`MODEL_PATH`, `WEIGHTS_PATH`, and other variables to your own files, and omit
+`--overwrite` to keep an existing notebook untouched.
