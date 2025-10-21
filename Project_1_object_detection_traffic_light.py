@@ -656,6 +656,7 @@ def command_export_notebook(args: argparse.Namespace) -> None:
         """
         from importlib import import_module, util
         from pathlib import Path
+        import sys
 
         def guard(module, package=None, critical=False):
             if util.find_spec(module):
@@ -669,6 +670,10 @@ def command_export_notebook(args: argparse.Namespace) -> None:
             if critical:
                 raise ModuleNotFoundError(module)
             return None
+
+        project_root = Path.cwd()
+        if str(project_root) not in sys.path:
+            sys.path.insert(0, str(project_root))
 
         nbformat = guard("nbformat", critical=True)
         torch = guard("torch")
