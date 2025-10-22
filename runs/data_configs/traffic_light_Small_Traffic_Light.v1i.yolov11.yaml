@@ -1,0 +1,9 @@
+path: /home/cv-sse/Pictures/opencv-project1/Small Traffic Light.v1i.yolov11
+train: /home/cv-sse/Pictures/opencv-project1/Small Traffic Light.v1i.yolov11/train/images
+val: /home/cv-sse/Pictures/opencv-project1/Small Traffic Light.v1i.yolov11/valid/images
+names:
+  0: green
+  1: 'off'
+  2: red
+  3: wait_on
+  4: yellow
